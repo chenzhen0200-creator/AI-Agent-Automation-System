@@ -523,5 +523,8 @@ def run_ads_learning_agent(user_goal, screenshot=None, image_path=None, vision_a
     if len(names) == 2:
         context["execution_trace"].append("multi_tool_plan")
         return _run_combination(context, names)
-    arguments = selected_arguments if selected_name == names[0] and selected_arguments is not None else _arguments_for(context, names[0])
+    # 步骤主题由完整的用户原句识别，避免模型缩写 topic 后错选 Ad Set／Search。
+    arguments = (_arguments_for(context, names[0]) if context["intent"] == "steps" else
+                 selected_arguments if selected_name == names[0] and selected_arguments is not None else
+                 _arguments_for(context, names[0]))
     return _run_single(context, names[0], arguments)
