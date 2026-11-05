@@ -52,8 +52,14 @@ def run_workflow(workflow_name, trigger_type="manual", inputs=None):
                     return make_error("Max Workflow Steps Exceeded", "自动化工具调用次数已达到上限")
                 context["step_count"] += 1
                 context["execution_trace"].append("tool_execution:" + name)
-                return execute_tool(name, policy_context={"user_goal": arguments.get("query", ""),
-                                                      "arguments": arguments}, **arguments)
+                meta = next((item for item in get_available_tools() if item["name"] == name), None)
+                legacy_key = ("topic" if "topic" in arguments else "issue" if "issue" in arguments else None
+                              ) if meta and meta["intent"] in ("concept", "steps", "analysis", "comparison") else None
+                positional = (arguments[legacy_key],) if legacy_key else ()
+                keywords = {key: value for key, value in arguments.items() if key != legacy_key}
+                return execute_tool(name, *positional,
+                                    policy_context={"user_goal": arguments.get("query", ""),
+                                                    "arguments": arguments}, **keywords)
 
             result, retries = run_with_retry(attempt, name)
             context["retry_count"] += retries + result.get("retry_count", 0)
@@ -81,6 +87,7 @@ def run_workflow(workflow_name, trigger_type="manual", inputs=None):
         "success": error is None, "workflow_name": workflow_name, "trigger_type": trigger_type,
         "status": context["status"], "started_at": context["started_at"], "finished_at": finished_at,
         "steps_executed": context["step_count"], "retry_count": context["retry_count"],
+        "fallback_used": context["fallback_used"],
         "results": context["tool_results"], "warnings": context["warnings"],
         "execution_trace": context["execution_trace"],
     }

@@ -18,7 +18,22 @@ def run_scheduled_learning(context, run_tool):
         "freshness_required": True,
     })
     if not search["success"]:
-        return search
+        if search.get("error_type") not in {
+                "Search API Not Configured", "Search Request Failed", "No Search Results",
+                "Official Source Not Found", "Content Extraction Failed"}:
+            return search
+        # 只提供稳定概念学习，不宣称已取得最新官方资料。
+        context["warnings"].append({"error_type": search["error_type"],
+                                    "message": "最新官方资料未核实；以下仅为基础概念学习"})
+        context["fallback_used"] = "stable_tool"
+        context["execution_trace"].append("stable_concept_fallback")
+        concept_name = "explain_google_ads_concept" if platform == "google_ads" else "explain_meta_ads_concept"
+        concept_query = "Google Ads CTR 是什么" if platform == "google_ads" else "Meta Ads Pixel 是什么"
+        concept = run_tool(concept_name, {"topic": concept_query})
+        if not concept["success"]:
+            return concept
+        return {"success": True, "platform": platform, "summary": concept.get("explanation", ""),
+                "topic": concept.get("topic"), "sources": [], "freshness_unverified": True}
     sources = search.get("sources", [])
     excerpts = [item.get("content", "")[:300] for item in search.get("retrieved_content", [])[:3]]
     context["execution_trace"].append("learning_summary")
