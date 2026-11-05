@@ -401,6 +401,9 @@ def _plan(context, primary_name):
     message = context["user_message"]
     platform = context["platform"]
     intent = context["intent"]
+    # 明确的步骤问题必须交给结构化 Steps Tool，不能用模型选出的简短概念答案替代。
+    if intent == "steps" and platform in ("google_ads", "meta_ads"):
+        return [ROUTES[(platform, "steps")]]
     if intent in ("memory", "progress"):
         name = ROUTES.get((platform, intent))
         return [name] if name else []
@@ -460,7 +463,7 @@ def run_ads_learning_agent(user_goal, screenshot=None, image_path=None, vision_a
                        safe_tool_name(reason), decision["error_type"], decision.get("status_code", "none"),
                        context["llm_retry_count"])
     elif decision["type"] == "direct_answer":
-        if context["intent"] not in ("memory", "progress", "retrieval"):
+        if context["intent"] not in ("memory", "progress", "retrieval", "steps"):
             if context["platform"] == "unknown":
                 return _safe_error(context, make_error("Unknown Platform", "当前 Agent 仅支持 Google Ads 和 Meta Ads"))
             context["execution_mode"] = "llm_tool_calling"
@@ -504,7 +507,7 @@ def run_ads_learning_agent(user_goal, screenshot=None, image_path=None, vision_a
         if context["platform"] == "unknown":
             if selected_meta["platform"] in ("google_ads", "meta_ads"):
                 context["platform"] = selected_meta["platform"]
-        if context["intent"] not in ("retrieval", "memory", "progress"):
+        if context["intent"] not in ("retrieval", "memory", "progress", "steps"):
             context["intent"] = selected_meta["intent"]
 
     if context["platform"] == "unknown":

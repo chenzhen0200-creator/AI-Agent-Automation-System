@@ -65,7 +65,7 @@ Concept Tool 为具体主题返回 name、chinese_name、explanation、formula�
 
 ## 图文步骤与截图接口
 
-两个 Steps Tool 保留 visual_step_by_step 模式。每一步包含 step_number、title、description、ui_location、action、next_page、image_hint。现在只有图文式步骤说明，没有真实截图。直接给旧 Steps Tool 传 screenshot 参数时返回 Vision Not Configured；Agent 收到截图路径后则优先进入 Screenshot Tool。没有真实视觉服务时不会伪称已经识别图片。
+两个 Steps Tool 保留 visual_step_by_step 模式。每一步包含 step_number、title、description、ui_location、action、expected_result、next_page、image_hint。步骤主题现提供完整的只读操作路径，Answer Composer 展示全部步骤及每一步的位置、操作、说明、预期结果和图示提示，不再截取前 6 步。现在只有图文式步骤说明，没有真实截图。直接给旧 Steps Tool 传 screenshot 参数时返回 Vision Not Configured；Agent 收到截图路径后则优先进入 Screenshot Tool。没有真实视觉服务时不会伪称已经识别图片。
 
 ## Screenshot / Vision 分析
 
