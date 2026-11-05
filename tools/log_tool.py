@@ -8,7 +8,7 @@ from pathlib import Path
 # 日志写入项目的 logs 目录，文件以追加模式保存。
 LOG_PATH = Path(__file__).resolve().parent.parent / "logs" / "app.log"
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-logger = logging.getLogger("ads_learning_agent")
+logger = logging.getLogger("AdLearn")
 logger.setLevel(logging.INFO)
 logger.propagate = False
 

@@ -19,7 +19,7 @@ from tools.log_tool import logger
 from tools.tool_registry import execute_tool
 
 
-app = FastAPI(title="Google Ads + Meta Ads Learning Agent", debug=False)
+app = FastAPI(title="AdLearn", description="AdLearn 是用于 Google Ads 和 Meta Ads 学习与自动化的 AI Agent。", debug=False)
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
@@ -57,7 +57,7 @@ def root():
 @app.get("/api/status")
 def api_status():
     """只暴露布尔状态，绝不返回密钥、模型提示词或环境变量值。"""
-    return {"service": "online", "llm_enabled": bool(LLM_ENABLED and MODEL_NAME and os.getenv(API_KEY_ENV_NAME)),
+    return {"service": "online", "service_name": "AdLearn", "llm_enabled": bool(LLM_ENABLED and MODEL_NAME and os.getenv(API_KEY_ENV_NAME)),
             "vision_enabled": VISION_ENABLED, "search_configured": bool(os.getenv(SEARCH_API_KEY_ENV_NAME))}
 
 

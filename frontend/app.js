@@ -130,7 +130,7 @@ function renderAutomation(data) {
   const panel = $("automation-result");
   panel.replaceChildren();
   panel.classList.remove("hidden");
-  panel.append(node("h3", "", data.success ? "工作流已完成" : "工作流未完成"));
+  panel.append(node("h3", "", data.success ? "AdLearn 工作流已完成" : "AdLearn 工作流未完成"));
   const list = node("dl");
   [["Workflow", data.workflow_name], ["Trigger", data.trigger_type], ["Status", data.status],
    ["Success", String(Boolean(data.success))], ["Steps", data.steps_executed]].forEach(([key, value]) => {
@@ -207,11 +207,11 @@ async function refreshStatus() {
   try {
     const data = await requestJson("/api/status");
     target.replaceChildren();
-    [["Service", data.service === "online"], ["LLM", data.llm_enabled],
+    [[`Service · ${data.service_name || "AdLearn"}`, data.service === "online"], ["LLM", data.llm_enabled],
      ["Vision", data.vision_enabled], ["Search", data.search_configured]].forEach(([label, active]) => {
       const row = node("div", "status-row");
       const value = label === "Search" ? (active ? "Configured" : "Not Configured") :
-                    label === "Service" ? (active ? "Online" : "Offline") : (active ? "Enabled" : "Disabled");
+                    label.startsWith("Service") ? (active ? "Online" : "Offline") : (active ? "Enabled" : "Disabled");
       row.append(node("span", "", label), node("strong", active ? "state-on" : "state-off", value));
       target.append(row);
     });

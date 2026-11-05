@@ -8,7 +8,7 @@ from agents.ads_learning_agent import run_ads_learning_agent
 
 def main():
     # --image-path 只传文件路径，程序不会自动点击广告后台。
-    parser = argparse.ArgumentParser(description="Google Ads + Meta Ads 学习 Agent")
+    parser = argparse.ArgumentParser(description="AdLearn")
     parser.add_argument("user_goal", nargs="*", help="学习问题")
     parser.add_argument("--image-path", help="本地广告后台截图路径")
     args = parser.parse_args()

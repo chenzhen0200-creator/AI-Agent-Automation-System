@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f8fa">
-  <title>Google Ads + Meta Ads Learning Agent</title>
+  <title>AdLearn</title>
+  <meta name="description" content="AdLearn 是用于 Google Ads 和 Meta Ads 学习与自动化的 AI Agent。">
   <link rel="stylesheet" href="/static/styles.css">
   <script src="/static/app.js" defer></script>
 </head>
@@ -14,15 +15,15 @@
       <div class="hero-mark" aria-hidden="true">A<span>+</span></div>
       <div>
         <p class="eyebrow">LEARNING WORKSPACE</p>
-        <h1>Google Ads + Meta Ads<br>Learning Agent</h1>
-        <p class="subtitle">Chat Learning + Automation Workflow</p>
+        <h1>AdLearn</h1>
+        <p class="subtitle">用于 Google Ads 和 Meta Ads 学习与自动化的 AI Agent</p>
       </div>
       <a class="docs-link" href="/docs">API Docs ↗</a>
     </header>
 
     <main class="grid">
       <section class="card chat-card" aria-labelledby="chat-title">
-        <div class="section-head"><div><p class="eyebrow">01 / CONVERSATION</p><h2 id="chat-title">Chat</h2></div><span class="badge">Interactive</span></div>
+        <div class="section-head"><div><p class="eyebrow">01 / CONVERSATION</p><h2 id="chat-title">AdLearn · Chat</h2></div><span class="badge">Interactive</span></div>
         <p class="section-description">学习概念、操作步骤，或分析 Google Ads 与 Meta Ads 案例。</p>
         <div id="conversation" class="conversation" role="log" aria-live="polite" aria-relevant="additions">
           <div class="empty-chat"><div class="empty-icon" aria-hidden="true">✳</div><strong>从一个问题开始</strong><span>例如：Google Ads CTR 是什么？</span></div>
@@ -36,7 +37,7 @@
 
       <div class="side-column">
         <section class="card" aria-labelledby="automation-title">
-          <div class="section-head"><div><p class="eyebrow">02 / WORKFLOWS</p><h2 id="automation-title">Automation</h2></div><span class="badge badge-purple">Manual trigger</span></div>
+          <div class="section-head"><div><p class="eyebrow">02 / WORKFLOWS</p><h2 id="automation-title">AdLearn · Automation</h2></div><span class="badge badge-purple">Manual trigger</span></div>
           <p class="section-description">手动运行只读学习工作流，不操作真实广告账户。</p>
           <label for="workflow" class="field-label">选择 Workflow</label>
           <select id="workflow">
@@ -48,12 +49,12 @@
         </section>
 
         <section class="card" aria-labelledby="progress-title">
-          <div class="section-head"><div><p class="eyebrow">03 / YOUR PATH</p><h2 id="progress-title">Learning Progress</h2></div><button id="refresh-progress" class="text-button" type="button">刷新 ↻</button></div>
+          <div class="section-head"><div><p class="eyebrow">03 / YOUR PATH</p><h2 id="progress-title">AdLearn · Learning Progress</h2></div><button id="refresh-progress" class="text-button" type="button">刷新 ↻</button></div>
           <div id="progress-content" class="progress-content"><p class="muted">正在读取学习进度…</p></div>
         </section>
 
         <section class="card" aria-labelledby="status-title">
-          <div class="section-head"><div><p class="eyebrow">04 / SERVICE</p><h2 id="status-title">System Status</h2></div><span id="service-indicator" class="status-dot" aria-label="正在连接"></span></div>
+          <div class="section-head"><div><p class="eyebrow">04 / SERVICE</p><h2 id="status-title">AdLearn · System Status</h2></div><span id="service-indicator" class="status-dot" aria-label="正在连接"></span></div>
           <div id="system-status" class="status-list"><p class="muted">正在连接服务…</p></div>
           <div class="coming-soon"><div><strong>Screenshot Analysis</strong><p>上传截图并识别后台界面</p></div><button type="button" disabled aria-disabled="true">Coming Soon</button></div>
         </section>
