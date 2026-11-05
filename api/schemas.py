@@ -31,3 +31,34 @@ class AgentResponse(BaseModel):
     message: str | None = None
     recoverable: bool | None = None
     suggested_action: str | None = None
+
+
+class AutomationRequest(BaseModel):
+    """手动运行一个已注册的自动化工作流。"""
+
+    workflow_name: str = Field(min_length=1, max_length=80)
+    inputs: dict[str, Any] = Field(default_factory=dict)
+
+
+class WebhookRequest(BaseModel):
+    """未来由外部事件或定时器提交的结构化输入。"""
+
+    inputs: dict[str, Any] = Field(default_factory=dict)
+
+
+class AutomationResponse(BaseModel):
+    """保留工作流输出和统一错误字段。"""
+
+    model_config = ConfigDict(extra="allow")
+    success: bool
+    workflow_name: str | None = None
+    trigger_type: str | None = None
+    status: str | None = None
+    steps_executed: int | None = None
+    results: list[dict[str, Any]] | None = None
+    warnings: list[dict[str, Any]] | None = None
+    execution_trace: list[str] | None = None
+    error_type: str | None = None
+    message: str | None = None
+    recoverable: bool | None = None
+    suggested_action: str | None = None

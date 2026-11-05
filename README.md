@@ -146,9 +146,23 @@ External Retrieval 从互联网按需查资料，处理知识的**出处与时�
 
 真实 LLM 可用后，模型理解与 Tool Calling 会优先于关键词规则；规则仍用于模型不可用时的回退。Tool Registry 继续限制可调用能力。Memory 已用本地 JSON 实现，截图分析的路由和结构化接口已就绪；未来仍需接入真实视觉适配器。RAG 知识库当前尚未实现。
 
+## Chat Mode
+
+`POST /chat` 仍由用户主动提问，路径为 `User → /chat → Agent → Tool → Answer`。原有 11 个 Tool、LLM 与规则回退均保留。
+
+## Automation Mode
+
+`POST /automation/run` 用于手动运行已注册工作流，例如 `{"workflow_name":"scheduled_ads_learning","inputs":{}}`。路径为 `Trigger → Workflow Runner → Workflow → Tool → Result`。`manual` 是当前可直接测试的触发方式；`schedule` 预留给 Render Cron 或外部定时器，`webhook` 预留给外部事件。两者都通过 `POST /automation/webhook/{workflow_name}` 进入，并要求请求头 `X-Automation-Token` 与服务端 `AUTOMATION_WEBHOOK_TOKEN` 相符；定时器还可传 `X-Automation-Trigger: schedule`。令牌未配置时入口拒绝执行，不在代码或日志中记录令牌。
+
+`automation/workflow_registry.py` 登记名称、描述、可用触发类型、handler、风险等级和启用状态；`workflow_runner.py` 建立独立 Context，校验 Tool、检查风险与权限、限制 `MAX_WORKFLOW_STEPS=10`，使用现有 Retry Policy，并返回 `steps_executed`、`results`、`warnings`、`execution_trace`。日志记录工作流名、触发方式、起止时间、步骤数、重试次数、回退情况和最终状态，不记录输入内容或密钥。
+
+`scheduled_ads_learning` 当前会用 `search_ads_knowledge` 检索 Google Ads 官方近期内容并整理来源摘要；可在 `inputs` 中传 `platform`（`google_ads` 或 `meta_ads`）和 `query`。**没有真实搜索 API 密钥时会返回 `Search API Not Configured`，不会伪造最新资料。** `ads_information_collection` 已登记但保持禁用：后续可按 URL 输入、抓取、字段提取、清洗、去重、写表、返回结果的顺序扩展；本版不抓取网页，也不写表。
+
+Automation Mode 只允许现有已注册的只读 Tool。真实广告创建、预算或出价修改、付款、删除和账户权限操作继续由 Guardrail 拦截。网络超时、429 与临时服务端错误可按现有重试规则处理；校验或权限错误不重试。当前没有安装定时任务、没有数据库，也没有连接广告账户。
+
 ## Deployment：FastAPI 与 Render
 
-本项目保留 `main.py` 作为命令行入口；`api/app.py` 是云端 Web 入口，`api/schemas.py` 定义请求和响应结构。当前 Windows 环境**不需要安装 Python**；若以后部署到 Render，Python 与依赖在云端 Build 阶段安装。这里仅准备部署文件，没有创建或验证云端服务。
+本项目保留 `main.py` 作为命令行入口；`api/app.py` 是云端 Web 入口，`api/schemas.py` 定义请求和响应结构。当前 Windows 环境**不需要安装 Python**；Render 在云端 Build 阶段安装 Python 依赖。服务的实际状态需在 Render 核实。
 
 | 接口 | 作用 |
 | --- | --- |
