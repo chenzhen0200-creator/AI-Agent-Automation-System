@@ -22,6 +22,12 @@
     </header>
 
     <main class="grid">
+      <aside class="card history-card" aria-labelledby="history-title">
+        <h2 id="history-title">Chat History</h2>
+        <button id="new-chat" class="primary-button" type="button">+ New Chat</button>
+        <p id="history-status" class="muted" role="status">正在读取历史记录…</p>
+        <div id="history-list" class="history-list"></div>
+      </aside>
       <section class="card chat-card" aria-labelledby="chat-title">
         <div class="section-head"><div><p class="eyebrow">01 / CONVERSATION</p><h2 id="chat-title">AdLearn · Chat</h2></div><span class="badge">Interactive</span></div>
         <p class="section-description">学习概念、操作步骤，或分析 Google Ads 与 Meta Ads 案例。</p>

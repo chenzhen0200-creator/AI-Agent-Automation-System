@@ -100,5 +100,13 @@ def get_meta_ads_steps(user_goal, screenshot=None):
         return make_error("Vision Not Configured", "当前未配置视觉模型，请用文字描述当前页面")
     text = user_goal.lower()
     topic = next((name for name in PRIORITY if any(word in text for word in ALIASES[name])), "Campaign")
-    steps = [make_step(number, *item) for number, item in enumerate(TOPIC_STEPS[topic], 1)]
+    items = TOPIC_STEPS[topic]
+    if topic == "Ad Set" and any(word in text for word in ("复制", "duplicate", "copy")):
+        items = [OPEN_MANAGER, SELECT_CAMPAIGN,
+            ("切换到广告组", "顶部层级切换区", "Ad sets／广告组", "所选系列的广告组列表", "确认目标 Campaign 与原广告组。"),
+            ("选择来源广告组", "广告组列表", "查看原 Ad Set 名称与勾选框", "来源广告组已定位", "核对受众、版位和排期，避免误选。"),
+            ("查看复制入口", "广告组列表上方或行操作菜单", "查看 Duplicate／复制", "复制设置界面", "入口通常位于操作栏；当前界面可能因账户版本略有不同。只做教学演示。"),
+            ("查看复制目标", "复制设置界面", "查看目标 Campaign 与副本数量", "看到复制目标选项", "若要在同一系列复制，目标应指向当前 Campaign；不要确认执行。"),
+            ("核对副本设置", "复制预览或编辑界面", "查看受众、预算、版位和优化", "理解副本继承的设置", "复制后仍需逐项核对，当前不提交。"), READ_ONLY]
+    steps = [make_step(number, *item) for number, item in enumerate(items, 1)]
     return {"success": True, "platform": "meta_ads", "topic": topic, "mode": "visual_step_by_step", "presentation": "图文式步骤说明（暂无真实截图）", "steps": steps}

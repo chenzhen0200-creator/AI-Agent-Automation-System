@@ -18,7 +18,11 @@ def detect_platform(goal):
     """第一层：识别 Google、Meta、跨平台或未知。"""
     text = goal.lower()
     google = any(word in text for word in ("google", "谷歌", "youtube", "search", "pmax", "performance max", "demand gen", "shopping"))
-    meta = any(word in text for word in ("meta", "facebook", "instagram", "脸书", "pixel", "capi", "ad set", "advantage+"))
+    import re
+    meta = any(word in text for word in ("meta", "facebook", "instagram", "脸书", "pixel", "capi", "ad set", "advantage+")) or bool(re.search(r"(?<![a-z])(?:fb|ig)(?![a-z])", text))
+    # “广告组”在两个平台都存在；没有明确 Google 标识时按常见 Meta 提问处理。
+    if "广告组" in text and not google:
+        meta = True
     comparison = any(word in text for word in ("区别", "对比", "比较", " vs ", "不同", "差异"))
     generic_pair = any(word in text for word in ("两个平台", "两平台", "跨平台"))
     if (google and meta) or (comparison and (google or meta or generic_pair)):
@@ -50,7 +54,7 @@ def detect_intent(goal):
     if any(word in text for word in ("google", "谷歌")) and any(word in text for word in ("meta", "facebook", "instagram")):
         return "comparison"
     # 界面定位问题优先交给图文步骤工具。
-    if any(word in text for word in ("在哪里", "哪里", "按钮", "怎么添加", "添加")):
+    if any(word in text for word in ("在哪里", "哪里", "按钮", "怎么添加", "添加", "复制", "duplicate", "copy", "教我")):
         return "steps"
     if any(word in text for word in ("为什么", "异常", "偏高", "偏低", "太高", "太低", "下降", "花不出去", "疲劳", "过窄", "高但", "低但", "分析", "案例", "高", "低", "learning limited", "addtocart", "搜索词不相关", "表现差", "点击多")):
         return "analysis"

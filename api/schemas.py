@@ -10,6 +10,13 @@ class ChatRequest(BaseModel):
 
     message: str = Field(min_length=1, max_length=4000)
     image_path: str | None = None
+    client_id: str | None = Field(default=None, min_length=36, max_length=36)
+    conversation_id: str | None = Field(default=None, min_length=36, max_length=36)
+
+
+class ConversationRequest(BaseModel):
+    client_id: str = Field(min_length=36, max_length=36)
+    title: str = Field(default="新对话", max_length=100)
 
 
 class AgentResponse(BaseModel):

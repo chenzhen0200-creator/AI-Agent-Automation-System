@@ -2,16 +2,20 @@
 
 import traceback
 import os
+from uuid import UUID
 from pathlib import Path
 
-from fastapi import FastAPI, Header, Request
+from fastapi import FastAPI, Header, Request, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from agents.ads_learning_agent import run_ads_learning_agent
-from api.schemas import AgentResponse, AutomationRequest, AutomationResponse, ChatRequest, WebhookRequest
+from api.schemas import AgentResponse, AutomationRequest, AutomationResponse, ChatRequest, ConversationRequest, WebhookRequest
+from database.connection import configured as database_configured, connected as database_connected
+from database.conversation_repository import create_conversation, delete_conversation, get_conversation, list_conversations
+from database.message_repository import list_messages, save_message
 from automation.trigger_handler import handle_trigger
 from config import API_KEY_ENV_NAME, CORS_ALLOW_ORIGINS, LLM_ENABLED, MODEL_NAME, SEARCH_API_KEY_ENV_NAME, VISION_ENABLED
 from errors import make_error
@@ -58,7 +62,57 @@ def root():
 def api_status():
     """只暴露布尔状态，绝不返回密钥、模型提示词或环境变量值。"""
     return {"service": "online", "service_name": "AdLearn", "llm_enabled": bool(LLM_ENABLED and MODEL_NAME and os.getenv(API_KEY_ENV_NAME)),
-            "vision_enabled": VISION_ENABLED, "search_configured": bool(os.getenv(SEARCH_API_KEY_ENV_NAME))}
+            "vision_enabled": VISION_ENABLED, "search_configured": bool(os.getenv(SEARCH_API_KEY_ENV_NAME)),
+            "database_configured": database_configured(), "database_connected": database_connected()}
+
+
+def _client_id(value):
+    try:
+        return str(UUID(value))
+    except (TypeError, ValueError, AttributeError):
+        raise HTTPException(status_code=422, detail="无效的 client_id")
+
+
+def _conversation_id(value):
+    try:
+        return str(UUID(value))
+    except (TypeError, ValueError, AttributeError):
+        raise HTTPException(status_code=422, detail="无效的 conversation_id")
+
+
+def _history_available():
+    if not database_configured():
+        raise HTTPException(status_code=503, detail="Database Not Configured")
+
+
+@app.get("/conversations")
+def conversations(client_id: str = Query(min_length=36, max_length=36)):
+    _history_available()
+    return {"success": True, "conversations": list_conversations(_client_id(client_id))}
+
+
+@app.post("/conversations")
+def new_conversation(request: ConversationRequest):
+    _history_available()
+    return {"success": True, "conversation": create_conversation(_client_id(request.client_id), request.title.strip() or "新对话")}
+
+
+@app.get("/conversations/{conversation_id}/messages")
+def conversation_messages(conversation_id: str, client_id: str = Query(min_length=36, max_length=36)):
+    _history_available()
+    owner = _client_id(client_id)
+    target = _conversation_id(conversation_id)
+    if not get_conversation(target, owner):
+        raise HTTPException(status_code=404, detail="未找到对话")
+    return {"success": True, "messages": list_messages(target, owner)}
+
+
+@app.delete("/conversations/{conversation_id}")
+def remove_conversation(conversation_id: str, client_id: str = Query(min_length=36, max_length=36)):
+    _history_available()
+    if not delete_conversation(_conversation_id(conversation_id), _client_id(client_id)):
+        raise HTTPException(status_code=404, detail="未找到对话")
+    return {"success": True}
 
 
 @app.get("/health")
@@ -79,7 +133,45 @@ def chat(request: ChatRequest):
     if request.image_path is not None:
         return make_error("Screenshot Upload Not Implemented", "云端 /chat 无法读取客户端本地 image_path",
                           suggested_action="请先用文字提问；截图上传接口开放后再上传文件")
-    return run_ads_learning_agent(request.message)
+    owner = _client_id(request.client_id) if request.client_id else None
+    target = _conversation_id(request.conversation_id) if request.conversation_id else None
+    if target and not owner:
+        raise HTTPException(status_code=422, detail="conversation_id 需要 client_id")
+    if not database_configured():
+        target = None
+    if target and database_configured():
+        try:
+            if not get_conversation(target, owner):
+                raise HTTPException(status_code=404, detail="未找到对话")
+        except HTTPException:
+            raise
+        except Exception as error:
+            logger.warning("chat_history_lookup_failed exception_type=%s", type(error).__name__)
+            target = None
+    history_warning = None
+    if owner and database_configured():
+        try:
+            if not target:
+                title = " ".join(request.message.split())[:40]
+                target = create_conversation(owner, title)["id"]
+            save_message(target, owner, "user", request.message)
+        except Exception as error:
+            logger.warning("chat_history_user_save_failed exception_type=%s", type(error).__name__)
+            history_warning = "Chat History Save Failed"
+    elif owner:
+        history_warning = "Database Not Configured"
+    result = run_ads_learning_agent(request.message)
+    if owner and target and database_configured():
+        try:
+            save_message(target, owner, "assistant", result.get("answer") or result.get("message") or "",
+                         result.get("platform"), result.get("intent"), result.get("execution_mode"))
+        except Exception as error:
+            logger.warning("chat_history_assistant_save_failed exception_type=%s", type(error).__name__)
+            history_warning = "Chat History Save Failed"
+    if history_warning:
+        result.setdefault("warnings", []).append({"error_type": history_warning, "message": "聊天记录暂时无法保存，回答仍可使用。"})
+    result["conversation_id"] = target
+    return result
 
 
 @app.post("/analyze-screenshot", response_model=AgentResponse, response_model_exclude_unset=True)

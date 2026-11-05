@@ -2,6 +2,66 @@
 
 const $ = (id) => document.getElementById(id);
 const conversation = $("conversation");
+const clientId = localStorage.getItem("adlearn_client_id") || crypto.randomUUID();
+localStorage.setItem("adlearn_client_id", clientId);
+let conversationId = localStorage.getItem("adlearn_conversation_id");
+
+function clearConversation() {
+  conversation.replaceChildren();
+  const empty = node("div", "empty-chat");
+  empty.append(node("strong", "", "从一个问题开始"), node("span", "", "例如：Google Ads CTR 是什么？"));
+  conversation.append(empty);
+}
+
+async function loadHistory() {
+  try {
+    const data = await requestJson(`/conversations?client_id=${encodeURIComponent(clientId)}`);
+    const list = $("history-list");
+    list.replaceChildren();
+    data.conversations.forEach((item) => {
+      const row = node("div", `history-item${item.id === conversationId ? " active" : ""}`);
+      const open = node("button", "history-open", item.title);
+      open.type = "button";
+      open.addEventListener("click", () => openConversation(item.id));
+      const remove = node("button", "history-delete", "Delete");
+      remove.type = "button";
+      remove.setAttribute("aria-label", `删除 ${item.title}`);
+      remove.addEventListener("click", async () => {
+        if (!confirm("确定删除这个对话吗？")) return;
+        try {
+          await requestJson(`/conversations/${item.id}?client_id=${encodeURIComponent(clientId)}`, { method: "DELETE" });
+          if (conversationId === item.id) newChat();
+          await loadHistory();
+        } catch (error) { $("history-status").textContent = error.message; }
+      });
+      row.append(open, remove);
+      list.append(row);
+    });
+    $("history-status").textContent = data.conversations.length ? `${data.conversations.length} 个对话` : "暂无历史对话";
+  } catch (error) {
+    $("history-status").textContent = error.message.includes("Database Not Configured") ? "Database Not Configured" : `历史记录不可用：${error.message}`;
+  }
+}
+
+async function openConversation(id) {
+  try {
+    const data = await requestJson(`/conversations/${id}/messages?client_id=${encodeURIComponent(clientId)}`);
+    conversationId = id;
+    localStorage.setItem("adlearn_conversation_id", id);
+    clearConversation();
+    data.messages.forEach((item) => showChatMessage(item.role === "user" ? "user" : "agent", item.content));
+    await loadHistory();
+  } catch (error) { $("history-status").textContent = error.message; }
+}
+
+function newChat() {
+  conversationId = null;
+  localStorage.removeItem("adlearn_conversation_id");
+  clearConversation();
+  $("message").focus();
+}
+
+$("new-chat").addEventListener("click", () => { newChat(); loadHistory(); });
 
 function node(tag, className = "", text = "") {
   const item = document.createElement(tag);
@@ -18,6 +78,7 @@ function validLink(value) {
 }
 
 function friendlyError(data, status) {
+  if (data?.detail === "Database Not Configured") return "Database Not Configured";
   if (status === 429) return "请求较多，请稍后再试。";
   if (status === 422) return "输入格式不正确，请检查内容后重试。";
   if (status >= 500) return "服务暂时无法处理请求，请稍后再试。";
@@ -107,8 +168,13 @@ $("chat-form").addEventListener("submit", async (event) => {
   try {
     const data = await requestJson("/chat", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, image_path: null }), statusElement: $("chat-status"),
+      body: JSON.stringify({ message, image_path: null, client_id: clientId, conversation_id: conversationId }), statusElement: $("chat-status"),
     });
+    if (data.conversation_id) {
+      conversationId = data.conversation_id;
+      localStorage.setItem("adlearn_conversation_id", conversationId);
+      loadHistory();
+    }
     showChatMessage("agent", data.success ? (data.answer || "已完成，但没有可展示的回答。") : friendlyError(data, 200), data, !data.success);
     if (data.execution_mode === "rule_fallback") $("chat-status").textContent = "已使用规则回退完成回答";
     else $("chat-status").textContent = data.success ? "回答已完成" : "请求未完成";
@@ -208,9 +274,10 @@ async function refreshStatus() {
     const data = await requestJson("/api/status");
     target.replaceChildren();
     [[`Service · ${data.service_name || "AdLearn"}`, data.service === "online"], ["LLM", data.llm_enabled],
-     ["Vision", data.vision_enabled], ["Search", data.search_configured]].forEach(([label, active]) => {
+     ["Vision", data.vision_enabled], ["Search", data.search_configured], ["Database", data.database_connected]].forEach(([label, active]) => {
       const row = node("div", "status-row");
-      const value = label === "Search" ? (active ? "Configured" : "Not Configured") :
+      const value = label === "Database" ? (active ? "Connected" : data.database_configured ? "Disconnected" : "Not Configured") :
+                    label === "Search" ? (active ? "Configured" : "Not Configured") :
                     label.startsWith("Service") ? (active ? "Online" : "Offline") : (active ? "Enabled" : "Disabled");
       row.append(node("span", "", label), node("strong", active ? "state-on" : "state-off", value));
       target.append(row);
@@ -225,3 +292,4 @@ async function refreshStatus() {
 $("refresh-progress").addEventListener("click", refreshProgress);
 refreshStatus();
 refreshProgress();
+loadHistory().then(() => { if (conversationId) openConversation(conversationId); });
