@@ -453,8 +453,12 @@ def run_ads_learning_agent(user_goal, screenshot=None, image_path=None, vision_a
         context["execution_trace"].append("rule_fallback")
         context["execution_mode"] = "rule_fallback"
         context["fallback_used"] = "rule_router"
-        logger.info("error_type=%s tool_name=llm_model recoverable=%s retry_count=%s fallback_used=rule_router risk_level=low blocked_action=none",
-                    decision["error_type"], decision["recoverable"], context["llm_retry_count"])
+        reason = decision.get("provider_error_type") or (
+            decision.get("message") if decision["error_type"] == "LLM Not Configured" else decision["error_type"]
+        )
+        logger.warning("LLM unavailable, using rule fallback fallback_reason=%s error_type=%s status_code=%s retry_count=%s",
+                       safe_tool_name(reason), decision["error_type"], decision.get("status_code", "none"),
+                       context["llm_retry_count"])
     elif decision["type"] == "direct_answer":
         if context["intent"] not in ("memory", "progress", "retrieval"):
             if context["platform"] == "unknown":

@@ -1,6 +1,7 @@
 """为学习 Agent 和各工具共用的日志记录器。"""
 
 import logging
+import sys
 from pathlib import Path
 
 
@@ -21,3 +22,7 @@ if not logger.handlers:
     handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
     logger.addHandler(handler)
+    # Render 收集标准输出；仍保留本地 app.log 供命令行排查。
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logger.addHandler(stream_handler)

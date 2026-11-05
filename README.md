@@ -23,6 +23,8 @@
 
 ## LLM Tool Calling 与规则回退
 
+Render 诊断：日志同时写入 `logs/app.log` 和标准输出，因此可在 Render Logs 查找 `LLM request started`、`LLM request succeeded`、`LLM request failed` 与 `LLM unavailable, using rule fallback`。日志只记录模型名、开关状态、是否配置密钥、HTTP 状态码和经过筛选的错误代码；不会记录密钥、用户问题或服务端原始错误正文。`MODEL_NAME` 默认是空字符串；若要启用真实 LLM，需要在 Render 环境变量中明确设置可用模型名、`LLM_ENABLED=true` 和 `OPENAI_API_KEY`。当前客户端用 Python 标准库直接请求 Responses API，未使用 OpenAI Python SDK，因此 `requirements.txt` 不需要 `openai` 包。
+
 `llm/tool_schema.py` 根据 Tool Registry 中的十一个条目生成 Function Calling Schema。每个 Schema 包含 name、description、parameters；参数用 JSON Schema 指明必需字段与类型。Memory 搜索工具接收可为 `null` 的 `platform` 和 `topic`；模型必须用它查询用户的学习历史，不能凭模型记忆猜测。`prompts/system_prompt.py` 继续禁止真实账户操作。
 
 `llm/model_client.py` 使用 Python 标准库调用 OpenAI Responses API。模型可返回一个 `tool_call`（工具名和参数），或 `direct_answer`。工具调用先经过 `llm/tool_validation.py`、风险分级和权限检查，再由 Tool Registry 执行。模型只选择本次的首个能力；Agent 可按固定的安全组合追加辅助 Tool，最多执行 3 次 Tool 调用。没有第二轮模型总结。
