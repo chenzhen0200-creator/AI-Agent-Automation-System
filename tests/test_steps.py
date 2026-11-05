@@ -1,8 +1,10 @@
 """检查教学步骤的覆盖范围与回答完整性。运行：python -m unittest discover -s tests"""
 
 import unittest
+from unittest.mock import patch
 
 from agents.answer_composer import _render
+from agents.ads_learning_agent import run_ads_learning_agent
 from tools.google_ads_steps_tool import get_google_ads_steps
 from tools.meta_ads_steps_tool import get_meta_ads_steps
 from tools.google_ads_steps_tool import TOPIC_STEPS as GOOGLE_TOPICS
@@ -61,6 +63,17 @@ class StepTeachingTests(unittest.TestCase):
         self.assertIn(f"第 {len(result['steps'])} 步：", answer)
         for label in ("位置：", "操作：", "说明：", "预期结果：", "图示提示："):
             self.assertEqual(answer.count(label), len(result["steps"]))
+
+    def test_teaching_request_uses_read_only_steps(self):
+        # “怎么创建”表达学习意图，不应被模型误选为真实账户创建操作。
+        with patch("agents.ads_learning_agent.choose_action") as choose_action, \
+                patch("agents.ads_learning_agent.record_learning", return_value={"success": True}), \
+                patch("agents.ads_learning_agent.update_short_term"):
+            result = run_ads_learning_agent("Google Ads Campaign 怎么创建？")
+        choose_action.assert_not_called()
+        self.assertTrue(result["success"])
+        self.assertIn("第 1 步：", result["answer"])
+        self.assertIn("第 9 步：", result["answer"])
 
 
 if __name__ == "__main__":

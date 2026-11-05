@@ -444,6 +444,14 @@ def run_ads_learning_agent(user_goal, screenshot=None, image_path=None, vision_a
         logger.info("screenshot_received=true")
         return _run_screenshot(context, vision_adapter)
 
+    # 明确的图文教学问题直接使用只读 Steps Tool，避免模型把“怎么创建”误选为真实创建动作。
+    if context["intent"] == "steps" and context["platform"] in ("google_ads", "meta_ads"):
+        tool_name = ROUTES[(context["platform"], "steps")]
+        context["execution_trace"].append("rule_steps_route")
+        context["execution_mode"] = "rule_fallback"
+        context["fallback_used"] = "rule_steps_route"
+        return _run_single(context, tool_name, _arguments_for(context, tool_name))
+
     context["execution_trace"].append("llm_tool_calling")
     decision = choose_action(message, get_tool_schemas())
     context["llm_retry_count"] = decision.get("retry_count", 0)
