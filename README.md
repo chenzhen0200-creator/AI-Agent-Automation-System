@@ -1,5 +1,11 @@
 # Google Ads & Meta Ads Learning Agent
 
+## 网页界面
+
+访问 `/` 可打开无需构建步骤的原生 HTML/CSS/JavaScript 页面，资源由 `/static` 提供。Chat 在当前页面保存对话，调用 `POST /chat` 并将回答、平台、意图、执行模式、来源、警告和执行轨迹分层展示；刷新页面后对话清空。Automation 卡片调用 `POST /automation/run`，已禁用的 `ads_information_collection` 不可选择。Learning Progress 从只读 `GET /learning-progress` 获取；System Status 从 `GET /api/status` 读取服务、LLM、Vision 和搜索的布尔状态，不返回密钥。截图按钮标记 Coming Soon，不会伪造上传成功。
+
+前端对超时、HTTP 422/429/500 和工作流错误分别显示提示。Render 实例首次启动较慢时会提示稍候。原有 `/chat`、`/health`、`/docs`、自动化与截图预留 API 仍可直接使用。
+
 这是一个只面向 Google Ads 和 Meta Ads 的学习 Agent。它提供概念解释、图文式操作步骤、案例分析、跨平台对比和学习进度。Agent 优先尝试 LLM Tool Calling；模型不可用时保留原有规则路由。所有输出都是 Python dict，命令行入口将其转换为 JSON。
 
 本项目不连接真实广告账户，不创建或修改广告，不执行充值、付款或预算调整。当前默认不启用真实 AI 模型，也没有数据库或视觉模型。
@@ -166,8 +172,10 @@ Automation Mode 只允许现有已注册的只读 Tool。真实广告创建、�
 
 | 接口 | 作用 |
 | --- | --- |
-| `GET /` | 返回服务名称和 `running` 状态 |
+| `GET /` | 返回 Agent 网页界面 |
+| `GET /api/status` | 返回服务与外部能力的布尔状态，不返回密钥 |
 | `GET /health` | 只检查 Web 服务能否响应，不调用 LLM、搜索、Vision 或广告账户 |
+| `GET /learning-progress` | 通过只读 Tool 返回学习进度 |
 | `POST /chat` | 接收 `{"message":"Google Ads CTR 是什么？"}`，调用现有 Agent 并返回其结构化结果 |
 | `POST /analyze-screenshot` | 截图上传预留接口，目前返回 `Screenshot Upload Not Implemented` |
 

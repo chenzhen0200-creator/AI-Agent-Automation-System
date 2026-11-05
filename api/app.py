@@ -1,21 +1,27 @@
 """云端 FastAPI 入口；CLI 仍由 main.py 提供。"""
 
 import traceback
+import os
+from pathlib import Path
 
 from fastapi import FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from agents.ads_learning_agent import run_ads_learning_agent
 from api.schemas import AgentResponse, AutomationRequest, AutomationResponse, ChatRequest, WebhookRequest
 from automation.trigger_handler import handle_trigger
-from config import CORS_ALLOW_ORIGINS
+from config import API_KEY_ENV_NAME, CORS_ALLOW_ORIGINS, LLM_ENABLED, MODEL_NAME, SEARCH_API_KEY_ENV_NAME, VISION_ENABLED
 from errors import make_error
 from tools.log_tool import logger
+from tools.tool_registry import execute_tool
 
 
 app = FastAPI(title="Google Ads + Meta Ads Learning Agent", debug=False)
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 # 默认不允许跨站浏览器请求；未来前端域名通过环境变量逐一配置。
 if CORS_ALLOW_ORIGINS:
@@ -45,13 +51,26 @@ def handle_internal_error(_request: Request, error: Exception):
 
 @app.get("/")
 def root():
-    return {"name": "Google Ads + Meta Ads Learning Agent", "status": "running"}
+    return FileResponse(FRONTEND_DIR / "index.html", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/api/status")
+def api_status():
+    """只暴露布尔状态，绝不返回密钥、模型提示词或环境变量值。"""
+    return {"service": "online", "llm_enabled": bool(LLM_ENABLED and MODEL_NAME and os.getenv(API_KEY_ENV_NAME)),
+            "vision_enabled": VISION_ENABLED, "search_configured": bool(os.getenv(SEARCH_API_KEY_ENV_NAME))}
 
 
 @app.get("/health")
 def health():
     # 只确认 Web 进程能响应；不调用模型、搜索、视觉或广告账户。
     return {"status": "ok"}
+
+
+@app.get("/learning-progress")
+def learning_progress():
+    """通过原有只读 Tool Registry 获取学习进度。"""
+    return execute_tool("get_learning_progress", policy_context={"user_goal": "读取学习进度"})
 
 
 @app.post("/chat", response_model=AgentResponse, response_model_exclude_unset=True)
