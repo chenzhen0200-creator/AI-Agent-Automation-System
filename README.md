@@ -14,7 +14,7 @@ AdLearn 是用于 Google Ads 和 Meta Ads 学习与自动化的 AI Agent。它�
 
 设置 Render 环境变量 `DATABASE_URL` 为同 Region PostgreSQL 的 Internal Database URL。不要把连接串提交到 Git 或写入日志。服务会以 `CREATE TABLE IF NOT EXISTS` 初始化 `conversations` 和 `messages` 两表；`messages.conversation_id` 外键级联删除。所有 SQL 使用参数，不拼接用户输入。`GET /conversations`、`POST /conversations`、`GET /conversations/{conversation_id}/messages`、`DELETE /conversations/{conversation_id}` 提供会话读写，查询均校验 `client_id`。`POST /chat` 可带 `client_id` 和 `conversation_id`，自动创建会话并保存用户问题及回答，返回 `conversation_id`。网页刷新后会从 PostgreSQL 恢复会话；`localStorage` 只保留 ID。
 
-未配置 `DATABASE_URL` 时 `/chat` 仍正常教学，历史接口提示 `Database Not Configured`；写入失败时回答仍返回，并附 `Chat History Save Failed` 警告。`/api/status` 仅返回 `database_configured` 和 `database_connected` 布尔值。PostgreSQL Chat History 保存完整对话；原有 Learning Memory 继续记录学过的主题，两者用途不同。当前没有在 Render 创建数据库或配置连接串。
+未配置 `DATABASE_URL` 时 `/chat` 仍正常教学，历史接口提示 `Database Not Configured`；写入失败时回答仍返回，并附 `Chat History Save Failed` 警告。`/api/status` 仅返回 `database_configured` 和 `database_connected` 布尔值。PostgreSQL Chat History 保存完整对话；原有 Learning Memory 继续记录学过的主题，两者用途不同。Render Web Service 已通过环境变量连接 PostgreSQL；Free 数据库有到期日，若需长期保存请在 Render 升级或迁移，并定期备份。
 
 本项目不连接真实广告账户，不创建或修改广告，不执行充值、付款或预算调整。当前默认不启用真实 AI 模型，也没有数据库或视觉模型。
 
