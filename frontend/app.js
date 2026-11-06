@@ -148,9 +148,21 @@ function detailRow(container, label, value) {
   container.append(row);
 }
 
-function tutorialImageUrl(value) {
-  return typeof value === "string" && /^\/static\/tutorial-images\/[a-z0-9/_-]+\.svg$/.test(value) ? value : null;
+function tutorialImageUrl(step) {
+  const path = step?.image_url;
+  const source = step?.image_source;
+  if (step?.image_type !== "real_screenshot" ||
+      !["user_upload", "google_official", "meta_official", "public_tutorial"].includes(source) ||
+      typeof path !== "string" ||
+      !/^\/static\/tutorial-images\/(google|meta)\/real\/(?:[a-z0-9-]+\/)+[a-z0-9-]+\.(png|jpg|jpeg|webp)$/.test(path)) return null;
+  if (source !== "user_upload" && !validLink(step.source_url)) return null;
+  return path;
 }
+
+const screenshotSources = {
+  user_upload: "用户提供后台截图", google_official: "Google Ads 官方",
+  meta_official: "Meta 官方", public_tutorial: "公开教程",
+};
 
 function openLightbox(src, alt) {
   $("lightbox-image").src = src;
@@ -171,11 +183,11 @@ $("image-lightbox").addEventListener("click", (event) => {
 function renderStepCard(step, platform, topic) {
   const card = node("article", "step-card");
   card.append(node("h3", "", `第 ${step.step_number} 步：${step.title || "操作"}`));
-  const src = tutorialImageUrl(step.image_url);
+  const src = tutorialImageUrl(step);
   if (src) {
     const button = node("button", "step-image-button");
     button.type = "button";
-    const alt = `${platform === "meta_ads" ? "Meta Ads" : "Google Ads"} ${topic} 第 ${step.step_number} 步界面示意`;
+    const alt = `${platform === "meta_ads" ? "Meta Ads" : "Google Ads"} ${topic} 第 ${step.step_number} 步真实后台截图`;
     const img = node("img", "step-image");
     img.src = src;
     img.alt = alt;
@@ -184,8 +196,23 @@ function renderStepCard(step, platform, topic) {
     button.append(img);
     button.addEventListener("click", () => openLightbox(src, alt));
     card.append(button);
-  } else card.append(node("div", "image-placeholder", "该步骤暂未提供界面图片"));
-  card.append(node("p", "step-action", step.action || "查看当前步骤。"));
+    const sourceLine = node("div", "image-source");
+    sourceLine.append(node("span", "", `来源：${screenshotSources[step.image_source]}`));
+    if (step.captured_at) sourceLine.append(node("span", "", `拍摄日期：${step.captured_at}`));
+    const link = validLink(step.source_url);
+    if (link) {
+      const sourceDetails = node("details", "image-source-details");
+      sourceDetails.append(node("summary", "", "查看来源"));
+      const anchor = node("a", "", link);
+      anchor.href = link;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      sourceDetails.append(anchor);
+      sourceLine.append(sourceDetails);
+    }
+    card.append(sourceLine);
+  } else card.append(node("div", "image-placeholder", "该步骤暂未收录真实后台截图"));
+  card.append(node("p", "step-action", `操作：${step.action || "查看当前步骤。"}`));
   const details = node("details", "step-details");
   details.append(node("summary", "", "查看详细说明"));
   const body = node("div", "step-details-body");
@@ -206,7 +233,7 @@ function renderTutorial(data) {
   const result = tool.result;
   const section = node("section", "step-tutorial");
   section.append(node("h2", "", `${result.topic || "操作"} · 图文步骤`),
-                 node("p", "tutorial-note", "界面示意仅用于学习；实际页面可能因版本或账户设置而不同。"));
+                 node("p", "tutorial-note", "后台界面可能因账户版本或平台更新略有差异。"));
   result.steps.slice(0, 8).forEach((step) => section.append(renderStepCard(step, data.platform, result.topic)));
   if (result.steps.length > 8) {
     const more = node("details", "more-steps");

@@ -97,4 +97,5 @@ def get_google_ads_steps(user_goal, screenshot=None):
     text = user_goal.lower()
     topic = next((name for name in PRIORITY if any(word in text for word in ALIASES[name])), "Campaign")
     steps = attach_images([make_step(number, *item) for number, item in enumerate(TOPIC_STEPS[topic], 1)], "google_ads", topic)
-    return {"success": True, "platform": "google_ads", "topic": topic, "mode": "visual_step_by_step", "presentation": "图文式步骤说明（暂无真实截图）", "steps": steps}
+    return {"success": True, "platform": "google_ads", "topic": topic,
+            "mode": "visual_step_by_step", "presentation": "分步骤教学；有已核实截图时显示图片", "steps": steps}

@@ -2,7 +2,7 @@
 
 ## 网页界面
 
-访问 `/` 可打开无需构建步骤的原生 HTML/CSS/JavaScript 页面，资源由 `/static` 提供。Chat History 是默认收起的抽屉；会话保存在 PostgreSQL，刷新后恢复。Steps 回答以图片卡片和简短操作为主，技术详情折叠展示。Automation 卡片调用 `POST /automation/run`，已禁用的 `ads_information_collection` 不可选择。Learning Progress 从只读 `GET /learning-progress` 获取；System Status 从 `GET /api/status` 读取服务、LLM、Vision 和搜索的布尔状态，不返回密钥。截图按钮标记 Coming Soon，不会伪造上传成功。
+访问 `/` 可打开无需构建步骤的原生 HTML/CSS/JavaScript 页面，资源由 `/static` 提供。Chat History 是默认收起的抽屉；会话保存在 PostgreSQL，刷新后恢复。Steps 回答以步骤卡片和简短操作为主；只有已核实来源的真实后台截图才会显示，技术详情折叠展示。Automation 卡片调用 `POST /automation/run`，已禁用的 `ads_information_collection` 不可选择。Learning Progress 从只读 `GET /learning-progress` 获取；System Status 从 `GET /api/status` 读取服务、LLM、Vision 和搜索的布尔状态，不返回密钥。截图按钮标记 Coming Soon，不会伪造上传成功。
 
 前端对超时、HTTP 422/429/500 和工作流错误分别显示提示。Render 实例首次启动较慢时会提示稍候。原有 `/chat`、`/health`、`/docs`、自动化与截图预留 API 仍可直接使用。
 
@@ -14,7 +14,7 @@ AdLearn 是用于 Google Ads 和 Meta Ads 学习与自动化的 AI Agent。它�
 
 设置 Render 环境变量 `DATABASE_URL` 为同 Region PostgreSQL 的 Internal Database URL。不要把连接串提交到 Git 或写入日志。服务会以 `CREATE TABLE IF NOT EXISTS` 初始化 `conversations` 和 `messages` 两表；`messages.conversation_id` 外键级联删除。所有 SQL 使用参数，不拼接用户输入。`GET /conversations`、`POST /conversations`、`GET /conversations/{conversation_id}/messages`、`DELETE /conversations/{conversation_id}` 提供会话读写，查询均校验 `client_id`。`POST /chat` 可带 `client_id` 和 `conversation_id`，自动创建会话并保存用户问题及回答，返回 `conversation_id`。网页刷新后会从 PostgreSQL 恢复会话；`localStorage` 只保留 ID。
 
-未配置 `DATABASE_URL` 时 `/chat` 仍正常教学，历史接口提示 `Database Not Configured`；写入失败时回答仍返回，并附 `Chat History Save Failed` 警告。`/api/status` 仅返回 `database_configured` 和 `database_connected` 布尔值。PostgreSQL Chat History 保存完整对话；`messages.metadata` 使用 JSONB，并通过 `ADD COLUMN IF NOT EXISTS` 安全迁移，保存步骤结构和图片 URL，旧消息继续保留并按纯文本显示。原有 Learning Memory 继续记录学过的主题。Render Web Service 已通过环境变量连接 PostgreSQL；Free 数据库有到期日，若需长期保存请在 Render 升级或迁移，并定期备份。
+未配置 `DATABASE_URL` 时 `/chat` 仍正常教学，历史接口提示 `Database Not Configured`；写入失败时回答仍返回，并附 `Chat History Save Failed` 警告。`/api/status` 仅返回 `database_configured` 和 `database_connected` 布尔值。PostgreSQL Chat History 保存完整对话；`messages.metadata` 使用 JSONB，并通过 `ADD COLUMN IF NOT EXISTS` 安全迁移，保存步骤结构、图片 URL、来源与拍摄日期，不存图片二进制。读取旧消息时会剔除以前的图片 URL，仅关联当前清单中已核实的真实截图；原有文字和聊天记录继续保留。原有 Learning Memory 继续记录学过的主题。Render Web Service 已通过环境变量连接 PostgreSQL；Free 数据库有到期日，若需长期保存请在 Render 升级或迁移，并定期备份。
 
 本项目不连接真实广告账户，不创建或修改广告，不执行充值、付款或预算调整。当前默认不启用真实 AI 模型，也没有数据库或视觉模型。
 
@@ -73,7 +73,11 @@ Concept Tool 为具体主题返回 name、chinese_name、explanation、formula�
 
 ## 图文步骤与截图接口
 
-两个 Steps Tool 保留 visual_step_by_step 模式。每一步包含 step_number、title、description、ui_location、action、expected_result、next_page、image_hint、image_url。Answer Composer 只输出简洁步骤摘要，完整信息留在 `tool_results`。服务启动时为两个平台的全部步骤主题生成 `/static/tutorial-images/` 中的 SVG 教学界面示意；每张图明确标注“非官方截图”，不含真实账户数据。网页默认展示前 8 个步骤卡片，余下步骤可展开；图片可放大，详细字段默认折叠。没有图片时显示文字占位。预置示意图不代表已识别用户截图；没有真实视觉服务时不会伪称已经识别图片。
+两个 Steps Tool 保留 `visual_step_by_step` 模式。每一步包含 `step_number`、`title`、`description`、`ui_location`、`action`、`expected_result`、`image_hint`，以及可为空的 `image_url`、`image_type`、`image_source`、`source_url`、`captured_at` 和 `platform`。Answer Composer 只输出简洁步骤摘要，完整信息留在 `tool_results`。网页默认展示前 8 个步骤卡片，余下步骤可展开；有真实截图时可点击放大，图片下方显示来源、拍摄日期与折叠的来源链接。没有已核实截图时显示“该步骤暂未收录真实后台截图”，文字步骤仍完整可用。后台界面可能因账户版本或平台更新略有差异。
+
+图片清单在 `data/tutorial_screenshots.json`，当前 `screenshots` 为空：**尚未收录任何真实后台截图**。不再在服务启动时生成图片。未来每条清单记录应包含平台、主题、可选变体、步骤编号、相对路径、`image_source`、`source_url`、`captured_at`，以及 `rights_cleared: true`、`cropped_to_step: true`。相对路径形如 `meta/real/ad-set/step-5.png`，对应 `frontend/tutorial-images/` 下的真实 PNG、JPG、JPEG 或 WEBP 文件。官方或公开教程必须提供 HTTPS 来源链接；第三方图片还要核实展示许可。用户截图进入公开静态目录前必须去除邮箱、账户 ID、客户名称、金额等敏感信息，并有 `redacted: true` 与 `publish_approved: true`；未经同意的原始用户截图不应进入 Git 或公开静态目录。截图应预先裁剪到相关控件，允许在**真实底图**上加红框或箭头。此版本不自动裁剪或标注，也未开放上传 API。
+
+待补充的第一批 Meta 截图：Campaign / Ad Set / Ad 层级、Ad Set 列表、Duplicate 入口和设置窗口、Audience、Placements、Budget & schedule、Optimization & delivery、Ad creative、Events Manager、Pixel。Google 截图：Campaigns、Ad groups、Ads、Keywords、Audiences、Budget、Bidding、Locations、Search、Video、Performance Max、Demand Gen。特别是“同一 Campaign 复制 Ad Set”的 8 个步骤目前都只有文字教学，需要用户提供已遮挡隐私的真实截图，或经许可的官方图片。`POST /analyze-screenshot` 仍是预留接口；未来上传应使用 `multipart/form-data`、限制 PNG/JPG/JPEG/WEBP 与文件大小，不能使用客户端本地路径。
 
 ## Screenshot / Vision 分析
 

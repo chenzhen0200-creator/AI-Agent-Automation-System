@@ -20,6 +20,9 @@
 .step-card h3{font-size:15px;line-height:1.4;margin:0 0 11px;color:#263b53}
 .step-image-button{display:block;width:100%;padding:0;border:0;background:#f3f7fb;border-radius:8px;overflow:hidden;cursor:zoom-in}
 .step-image{display:block;max-width:100%;height:auto;width:100%}
+.image-source{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:#6f7f90;font-size:11px;margin-top:7px;line-height:1.5}
+.image-source-details summary{cursor:pointer;color:#2f6588}
+.image-source-details a{display:block;max-width:100%;overflow-wrap:anywhere;color:#2f6588}
 .image-placeholder{display:grid;place-items:center;min-height:130px;background:#f5f7fa;border-radius:8px;color:#8190a0;font-size:12px}
 .step-action{font-size:14px;color:#334960;line-height:1.6;margin:11px 0}
 .step-details,.more-steps{font-size:12px;color:#667b91}

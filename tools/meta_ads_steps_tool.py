@@ -110,4 +110,6 @@ def get_meta_ads_steps(user_goal, screenshot=None):
             ("查看复制目标", "复制设置界面", "查看目标 Campaign 与副本数量", "看到复制目标选项", "若要在同一系列复制，目标应指向当前 Campaign；不要确认执行。"),
             ("核对副本设置", "复制预览或编辑界面", "查看受众、预算、版位和优化", "理解副本继承的设置", "复制后仍需逐项核对，当前不提交。"), READ_ONLY]
     steps = attach_images([make_step(number, *item) for number, item in enumerate(items, 1)], "meta_ads", topic, "Ad Set Duplicate" if duplicate else None)
-    return {"success": True, "platform": "meta_ads", "topic": topic, "mode": "visual_step_by_step", "presentation": "图文式步骤说明（暂无真实截图）", "steps": steps}
+    return {"success": True, "platform": "meta_ads", "topic": topic,
+            "image_variant": "Ad Set Duplicate" if duplicate else None,
+            "mode": "visual_step_by_step", "presentation": "分步骤教学；有已核实截图时显示图片", "steps": steps}
