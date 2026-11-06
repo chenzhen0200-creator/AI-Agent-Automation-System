@@ -1,6 +1,8 @@
 """检查教学步骤的覆盖范围与回答完整性。运行：python -m unittest discover -s tests"""
 
 import unittest
+from tempfile import TemporaryDirectory
+from pathlib import Path
 from unittest.mock import patch
 
 from agents.answer_composer import _render
@@ -9,6 +11,7 @@ from tools.google_ads_steps_tool import get_google_ads_steps
 from tools.meta_ads_steps_tool import get_meta_ads_steps
 from tools.google_ads_steps_tool import TOPIC_STEPS as GOOGLE_TOPICS
 from tools.meta_ads_steps_tool import TOPIC_STEPS as META_TOPICS
+from tools.tutorial_images import build_tutorial_images
 
 
 class StepTeachingTests(unittest.TestCase):
@@ -28,7 +31,7 @@ class StepTeachingTests(unittest.TestCase):
         self.assertGreaterEqual(len(steps), minimum)
         self.assertEqual([item["step_number"] for item in steps], list(range(1, len(steps) + 1)))
         for item in steps:
-            for field in ("title", "ui_location", "action", "description", "expected_result", "image_hint"):
+            for field in ("title", "ui_location", "action", "description", "expected_result", "image_hint", "image_url"):
                 self.assertTrue(item.get(field), f"{expected_topic}: {field} 不应为空")
         return result
 
@@ -57,12 +60,22 @@ class StepTeachingTests(unittest.TestCase):
             with self.subTest(topic=topic):
                 self.check_topic(get_google_ads_steps, question, topic, 6 if topic in ("Campaign", "Search", "Video / YouTube") else 5)
 
-    def test_answer_contains_every_step_and_field(self):
+    def test_answer_is_brief_but_keeps_every_step(self):
         result = self.check_topic(get_meta_ads_steps, "Meta Ads 广告组在哪里设置", "Ad Set", 5)
         answer = _render("get_meta_ads_steps", result)
         self.assertIn(f"第 {len(result['steps'])} 步：", answer)
-        for label in ("位置：", "操作：", "说明：", "预期结果：", "图示提示："):
-            self.assertEqual(answer.count(label), len(result["steps"]))
+        self.assertEqual(answer.count("第 "), len(result["steps"]))
+        for label in ("位置：", "说明：", "预期结果：", "图示提示："):
+            self.assertNotIn(label, answer)
+        self.assertTrue(all(step.get("image_url", "").startswith("/static/tutorial-images/") for step in result["steps"]))
+
+    def test_static_schematics_cover_topics_and_duplicate(self):
+        with TemporaryDirectory() as directory:
+            build_tutorial_images(directory)
+            root = Path(directory) / "tutorial-images"
+            self.assertTrue((root / "meta/ad-set-duplicate/step-5.svg").exists())
+            self.assertTrue((root / "google/ad-group/step-4.svg").exists())
+            self.assertIn("非官方截图", (root / "meta/ad-set-duplicate/step-5.svg").read_text(encoding="utf-8"))
 
     def test_teaching_request_uses_read_only_steps(self):
         # “怎么创建”表达学习意图，不应被模型误选为真实账户创建操作。

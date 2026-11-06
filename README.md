@@ -2,7 +2,7 @@
 
 ## 网页界面
 
-访问 `/` 可打开无需构建步骤的原生 HTML/CSS/JavaScript 页面，资源由 `/static` 提供。Chat 在当前页面保存对话，调用 `POST /chat` 并将回答、平台、意图、执行模式、来源、警告和执行轨迹分层展示；刷新页面后对话清空。Automation 卡片调用 `POST /automation/run`，已禁用的 `ads_information_collection` 不可选择。Learning Progress 从只读 `GET /learning-progress` 获取；System Status 从 `GET /api/status` 读取服务、LLM、Vision 和搜索的布尔状态，不返回密钥。截图按钮标记 Coming Soon，不会伪造上传成功。
+访问 `/` 可打开无需构建步骤的原生 HTML/CSS/JavaScript 页面，资源由 `/static` 提供。Chat History 是默认收起的抽屉；会话保存在 PostgreSQL，刷新后恢复。Steps 回答以图片卡片和简短操作为主，技术详情折叠展示。Automation 卡片调用 `POST /automation/run`，已禁用的 `ads_information_collection` 不可选择。Learning Progress 从只读 `GET /learning-progress` 获取；System Status 从 `GET /api/status` 读取服务、LLM、Vision 和搜索的布尔状态，不返回密钥。截图按钮标记 Coming Soon，不会伪造上传成功。
 
 前端对超时、HTTP 422/429/500 和工作流错误分别显示提示。Render 实例首次启动较慢时会提示稍候。原有 `/chat`、`/health`、`/docs`、自动化与截图预留 API 仍可直接使用。
 
@@ -14,7 +14,7 @@ AdLearn 是用于 Google Ads 和 Meta Ads 学习与自动化的 AI Agent。它�
 
 设置 Render 环境变量 `DATABASE_URL` 为同 Region PostgreSQL 的 Internal Database URL。不要把连接串提交到 Git 或写入日志。服务会以 `CREATE TABLE IF NOT EXISTS` 初始化 `conversations` 和 `messages` 两表；`messages.conversation_id` 外键级联删除。所有 SQL 使用参数，不拼接用户输入。`GET /conversations`、`POST /conversations`、`GET /conversations/{conversation_id}/messages`、`DELETE /conversations/{conversation_id}` 提供会话读写，查询均校验 `client_id`。`POST /chat` 可带 `client_id` 和 `conversation_id`，自动创建会话并保存用户问题及回答，返回 `conversation_id`。网页刷新后会从 PostgreSQL 恢复会话；`localStorage` 只保留 ID。
 
-未配置 `DATABASE_URL` 时 `/chat` 仍正常教学，历史接口提示 `Database Not Configured`；写入失败时回答仍返回，并附 `Chat History Save Failed` 警告。`/api/status` 仅返回 `database_configured` 和 `database_connected` 布尔值。PostgreSQL Chat History 保存完整对话；原有 Learning Memory 继续记录学过的主题，两者用途不同。Render Web Service 已通过环境变量连接 PostgreSQL；Free 数据库有到期日，若需长期保存请在 Render 升级或迁移，并定期备份。
+未配置 `DATABASE_URL` 时 `/chat` 仍正常教学，历史接口提示 `Database Not Configured`；写入失败时回答仍返回，并附 `Chat History Save Failed` 警告。`/api/status` 仅返回 `database_configured` 和 `database_connected` 布尔值。PostgreSQL Chat History 保存完整对话；`messages.metadata` 使用 JSONB，并通过 `ADD COLUMN IF NOT EXISTS` 安全迁移，保存步骤结构和图片 URL，旧消息继续保留并按纯文本显示。原有 Learning Memory 继续记录学过的主题。Render Web Service 已通过环境变量连接 PostgreSQL；Free 数据库有到期日，若需长期保存请在 Render 升级或迁移，并定期备份。
 
 本项目不连接真实广告账户，不创建或修改广告，不执行充值、付款或预算调整。当前默认不启用真实 AI 模型，也没有数据库或视觉模型。
 
@@ -73,7 +73,7 @@ Concept Tool 为具体主题返回 name、chinese_name、explanation、formula�
 
 ## 图文步骤与截图接口
 
-两个 Steps Tool 保留 visual_step_by_step 模式。每一步包含 step_number、title、description、ui_location、action、expected_result、next_page、image_hint。步骤主题现提供完整的只读操作路径，Answer Composer 展示全部步骤及每一步的位置、操作、说明、预期结果和图示提示，不再截取前 6 步。现在只有图文式步骤说明，没有真实截图。直接给旧 Steps Tool 传 screenshot 参数时返回 Vision Not Configured；Agent 收到截图路径后则优先进入 Screenshot Tool。没有真实视觉服务时不会伪称已经识别图片。
+两个 Steps Tool 保留 visual_step_by_step 模式。每一步包含 step_number、title、description、ui_location、action、expected_result、next_page、image_hint、image_url。Answer Composer 只输出简洁步骤摘要，完整信息留在 `tool_results`。服务启动时为两个平台的全部步骤主题生成 `/static/tutorial-images/` 中的 SVG 教学界面示意；每张图明确标注“非官方截图”，不含真实账户数据。网页默认展示前 8 个步骤卡片，余下步骤可展开；图片可放大，详细字段默认折叠。没有图片时显示文字占位。预置示意图不代表已识别用户截图；没有真实视觉服务时不会伪称已经识别图片。
 
 ## Screenshot / Vision 分析
 
@@ -202,6 +202,10 @@ Health Check Path: /health
 `CORS_ALLOW_ORIGINS` 是可选的、逗号分隔的前端来源列表，默认留空；部署前需填明确的 `https://...` 域名，代码不接受 `*` 通配符。FastAPI 的[请求体模型](https://fastapi.tiangolo.com/tutorial/body/)校验 `/chat` 输入；格式错误和未处理异常只向客户端返回安全错误，服务器日志记录异常类型与调用栈，不回传完整 traceback。CORS 的来源限制参考 [FastAPI 官方说明](https://fastapi.tiangolo.com/tutorial/cors/)。
 
 `data/learning_memory.json` 适合当前学习与原型阶段。云端实例重启、重新部署或横向扩容后，本地文件可能丢失或在各实例间不一致；它不应被视为可靠的长期数据库。当前继续使用 JSON 架构，未来可迁移到 PostgreSQL 或其他托管数据库。被 Git 忽略的个人学习记忆文件在云端首次使用时会从空结构开始。
+
+## Render 冷启动与未来部署选项
+
+当前前端和 API 共用 Render Free Web Service。实例休眠后首次访问仍可能显示 Render Loading Page；页面加载后，较慢的 Chat 请求会提示“AdLearn 服务正在启动，请稍候…”。未来可选将 Frontend 部署为 Render Static Site、Backend 保留 Web Service，让网页先加载再等待 Chat API；本阶段不拆分部署。
 
 ## 参考资料
 

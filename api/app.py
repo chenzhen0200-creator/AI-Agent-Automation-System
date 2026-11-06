@@ -21,10 +21,12 @@ from config import API_KEY_ENV_NAME, CORS_ALLOW_ORIGINS, LLM_ENABLED, MODEL_NAME
 from errors import make_error
 from tools.log_tool import logger
 from tools.tool_registry import execute_tool
+from tools.tutorial_images import build_tutorial_images
 
 
 app = FastAPI(title="AdLearn", description="AdLearn 是用于 Google Ads 和 Meta Ads 学习与自动化的 AI Agent。", debug=False)
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+build_tutorial_images(FRONTEND_DIR)
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 # 默认不允许跨站浏览器请求；未来前端域名通过环境变量逐一配置。
@@ -163,8 +165,14 @@ def chat(request: ChatRequest):
     result = run_ads_learning_agent(request.message)
     if owner and target and database_configured():
         try:
+            tutorial = next((item for item in result.get("tool_results", [])
+                             if item.get("success") and item.get("tool_name") in
+                             ("get_google_ads_steps", "get_meta_ads_steps")), None)
+            metadata = ({"platform": result.get("platform"), "intent": "steps",
+                         "tool_name": tutorial["tool_name"], "topic": tutorial["result"].get("topic"),
+                         "steps": tutorial["result"].get("steps", [])} if tutorial else None)
             save_message(target, owner, "assistant", result.get("answer") or result.get("message") or "",
-                         result.get("platform"), result.get("intent"), result.get("execution_mode"))
+                         result.get("platform"), result.get("intent"), result.get("execution_mode"), metadata=metadata)
         except Exception as error:
             logger.warning("chat_history_assistant_save_failed exception_type=%s", type(error).__name__)
             history_warning = "Chat History Save Failed"

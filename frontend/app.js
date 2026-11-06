@@ -5,6 +5,25 @@ const conversation = $("conversation");
 const clientId = localStorage.getItem("adlearn_client_id") || crypto.randomUUID();
 localStorage.setItem("adlearn_client_id", clientId);
 let conversationId = localStorage.getItem("adlearn_conversation_id");
+const drawer = $("history-drawer");
+function setHistoryOpen(open) {
+  drawer.classList.toggle("open", open);
+  drawer.inert = !open;
+  drawer.setAttribute("aria-hidden", String(!open));
+  $("history-backdrop").hidden = !open;
+  $("history-toggle").setAttribute("aria-expanded", String(open));
+  if (open) $("history-close").focus();
+  else $("history-toggle").focus();
+}
+$("history-toggle").addEventListener("click", () => setHistoryOpen(!drawer.classList.contains("open")));
+$("history-close").addEventListener("click", () => setHistoryOpen(false));
+$("history-backdrop").addEventListener("click", () => setHistoryOpen(false));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    if (!$("image-lightbox").hidden) closeLightbox();
+    else if (drawer.classList.contains("open")) setHistoryOpen(false);
+  }
+});
 
 function clearConversation() {
   conversation.replaceChildren();
@@ -23,9 +42,11 @@ async function loadHistory() {
       const open = node("button", "history-open", item.title);
       open.type = "button";
       open.addEventListener("click", () => openConversation(item.id));
+      const menu = node("details", "history-menu");
+      menu.append(node("summary", "", "⋯"));
+      menu.querySelector("summary").setAttribute("aria-label", `${item.title} 的更多操作`);
       const remove = node("button", "history-delete", "Delete");
       remove.type = "button";
-      remove.setAttribute("aria-label", `删除 ${item.title}`);
       remove.addEventListener("click", async () => {
         if (!confirm("确定删除这个对话吗？")) return;
         try {
@@ -34,7 +55,8 @@ async function loadHistory() {
           await loadHistory();
         } catch (error) { $("history-status").textContent = error.message; }
       });
-      row.append(open, remove);
+      menu.append(remove);
+      row.append(open, menu);
       list.append(row);
     });
     $("history-status").textContent = data.conversations.length ? `${data.conversations.length} 个对话` : "暂无历史对话";
@@ -49,7 +71,15 @@ async function openConversation(id) {
     conversationId = id;
     localStorage.setItem("adlearn_conversation_id", id);
     clearConversation();
-    data.messages.forEach((item) => showChatMessage(item.role === "user" ? "user" : "agent", item.content));
+    data.messages.forEach((item) => {
+      const meta = item.metadata;
+      const restored = meta?.intent === "steps" && Array.isArray(meta.steps)
+        ? { intent: "steps", platform: meta.platform, execution_mode: item.execution_mode,
+            tool_results: [{ tool_name: meta.tool_name, success: true, result: { topic: meta.topic, steps: meta.steps } }] }
+        : null;
+      showChatMessage(item.role === "user" ? "user" : "agent", item.content, restored);
+    });
+    setHistoryOpen(false);
     await loadHistory();
   } catch (error) { $("history-status").textContent = error.message; }
 }
@@ -61,7 +91,7 @@ function newChat() {
   $("message").focus();
 }
 
-$("new-chat").addEventListener("click", () => { newChat(); loadHistory(); });
+$("new-chat").addEventListener("click", () => { newChat(); setHistoryOpen(false); loadHistory(); });
 
 function node(tag, className = "", text = "") {
   const item = document.createElement(tag);
@@ -91,7 +121,7 @@ async function requestJson(path, options = {}) {
   const controller = new AbortController();
   const wakeTimer = setTimeout(() => {
     const status = options.statusElement;
-    if (status) status.textContent = "服务正在启动，请稍候……";
+    if (status) status.textContent = "AdLearn 服务正在启动，请稍候…";
   }, 3500);
   const timeout = setTimeout(() => controller.abort(), 90000);
   try {
@@ -102,7 +132,7 @@ async function requestJson(path, options = {}) {
     if (!response.ok) throw new Error(friendlyError(data, response.status));
     return data;
   } catch (error) {
-    if (error.name === "AbortError") throw new Error("请求超时。服务可能正在启动，请稍后重试。");
+    if (error.name === "AbortError") throw new Error("AdLearn 服务启动较慢，请稍后重试。");
     if (error instanceof TypeError) throw new Error("网络连接失败，请检查网络后重试。");
     throw error;
   } finally {
@@ -118,12 +148,82 @@ function detailRow(container, label, value) {
   container.append(row);
 }
 
+function tutorialImageUrl(value) {
+  return typeof value === "string" && /^\/static\/tutorial-images\/[a-z0-9/_-]+\.svg$/.test(value) ? value : null;
+}
+
+function openLightbox(src, alt) {
+  $("lightbox-image").src = src;
+  $("lightbox-image").alt = alt;
+  $("image-lightbox").hidden = false;
+  $("lightbox-close").focus();
+}
+
+function closeLightbox() {
+  $("image-lightbox").hidden = true;
+  $("lightbox-image").removeAttribute("src");
+}
+$("lightbox-close").addEventListener("click", closeLightbox);
+$("image-lightbox").addEventListener("click", (event) => {
+  if (event.target === $("image-lightbox")) closeLightbox();
+});
+
+function renderStepCard(step, platform, topic) {
+  const card = node("article", "step-card");
+  card.append(node("h3", "", `第 ${step.step_number} 步：${step.title || "操作"}`));
+  const src = tutorialImageUrl(step.image_url);
+  if (src) {
+    const button = node("button", "step-image-button");
+    button.type = "button";
+    const alt = `${platform === "meta_ads" ? "Meta Ads" : "Google Ads"} ${topic} 第 ${step.step_number} 步界面示意`;
+    const img = node("img", "step-image");
+    img.src = src;
+    img.alt = alt;
+    img.loading = "lazy";
+    img.addEventListener("error", () => button.replaceWith(node("div", "image-placeholder", "该步骤暂未提供界面图片")));
+    button.append(img);
+    button.addEventListener("click", () => openLightbox(src, alt));
+    card.append(button);
+  } else card.append(node("div", "image-placeholder", "该步骤暂未提供界面图片"));
+  card.append(node("p", "step-action", step.action || "查看当前步骤。"));
+  const details = node("details", "step-details");
+  details.append(node("summary", "", "查看详细说明"));
+  const body = node("div", "step-details-body");
+  detailRow(body, "位置", step.ui_location);
+  detailRow(body, "说明", step.description);
+  detailRow(body, "预期结果", step.expected_result || step.next_page);
+  detailRow(body, "界面位置提示", step.image_hint);
+  details.append(body);
+  card.append(details);
+  return card;
+}
+
+function renderTutorial(data) {
+  if (data?.intent !== "steps") return null;
+  const tool = data.tool_results?.find((item) => item.success &&
+    ["get_google_ads_steps", "get_meta_ads_steps"].includes(item.tool_name) && Array.isArray(item.result?.steps));
+  if (!tool) return null;
+  const result = tool.result;
+  const section = node("section", "step-tutorial");
+  section.append(node("h2", "", `${result.topic || "操作"} · 图文步骤`),
+                 node("p", "tutorial-note", "界面示意仅用于学习；实际页面可能因版本或账户设置而不同。"));
+  result.steps.slice(0, 8).forEach((step) => section.append(renderStepCard(step, data.platform, result.topic)));
+  if (result.steps.length > 8) {
+    const more = node("details", "more-steps");
+    more.append(node("summary", "", `查看剩余 ${result.steps.length - 8} 步`));
+    result.steps.slice(8).forEach((step) => more.append(renderStepCard(step, data.platform, result.topic)));
+    section.append(more);
+  }
+  return section;
+}
+
 function showChatMessage(role, text, data = null, isError = false) {
   const empty = conversation.querySelector(".empty-chat");
   if (empty) empty.remove();
   const wrapper = node("div", `message ${role}`);
   wrapper.append(node("span", "message-label", role === "user" ? "You" : "Agent"));
-  wrapper.append(node("div", `bubble${isError ? " error" : ""}`, text));
+  const tutorial = role === "agent" && !isError ? renderTutorial(data) : null;
+  wrapper.append(tutorial || node("div", `bubble${isError ? " error" : ""}`, text));
   if (role === "agent" && data) {
     const details = node("details", "details");
     details.append(node("summary", "", "查看来源与执行详情"));

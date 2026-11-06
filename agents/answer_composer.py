@@ -13,15 +13,7 @@ def _render(tool_name, result):
     if tool_name in ("get_google_ads_steps", "get_meta_ads_steps"):
         lines = [f"{result.get('topic', '操作')}："]
         for step in result.get("steps", []):
-            lines.extend([
-                f"第 {step['step_number']} 步：{step['title']}",
-                f"位置：{step['ui_location']}",
-                f"操作：{step['action']}",
-                f"说明：{step['description']}",
-                f"预期结果：{step.get('expected_result', step.get('next_page', ''))}",
-                f"图示提示：{step['image_hint']}",
-                "",
-            ])
+            lines.append(f"第 {step['step_number']} 步：{step['title']}\n{step['action']}")
         return "\n".join(lines)
     if tool_name in ("explain_google_ads_concept", "explain_meta_ads_concept"):
         if "explanation" not in result:

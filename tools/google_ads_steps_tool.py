@@ -1,6 +1,6 @@
 """Google Ads 图文式操作学习步骤；不连接或修改账户。"""
 
-from tools.visual_steps import make_step
+from tools.visual_steps import make_step, attach_images
 from errors import make_error
 
 
@@ -96,5 +96,5 @@ def get_google_ads_steps(user_goal, screenshot=None):
         return make_error("Vision Not Configured", "当前未配置视觉模型，请用文字描述当前页面")
     text = user_goal.lower()
     topic = next((name for name in PRIORITY if any(word in text for word in ALIASES[name])), "Campaign")
-    steps = [make_step(number, *item) for number, item in enumerate(TOPIC_STEPS[topic], 1)]
+    steps = attach_images([make_step(number, *item) for number, item in enumerate(TOPIC_STEPS[topic], 1)], "google_ads", topic)
     return {"success": True, "platform": "google_ads", "topic": topic, "mode": "visual_step_by_step", "presentation": "图文式步骤说明（暂无真实截图）", "steps": steps}

@@ -25,6 +25,7 @@ def ensure_schema():
                 role VARCHAR(16) NOT NULL, content TEXT NOT NULL,
                 platform VARCHAR(32), intent VARCHAR(32), execution_mode VARCHAR(32),
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())""")
+            db.execute("ALTER TABLE messages ADD COLUMN IF NOT EXISTS metadata JSONB")
             db.execute("CREATE INDEX IF NOT EXISTS conversations_client_updated_idx ON conversations(client_id, updated_at DESC)")
             db.execute("CREATE INDEX IF NOT EXISTS messages_conversation_created_idx ON messages(conversation_id, created_at)")
         _ready = True
