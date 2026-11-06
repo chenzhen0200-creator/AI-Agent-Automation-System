@@ -95,11 +95,14 @@ class StepTeachingTests(unittest.TestCase):
             manifest.write_text(json.dumps({"screenshots": [{"platform": "meta_ads", "topic": "Ad Set",
                 "variant": "Ad Set Duplicate", "step_number": 5, "path": "meta/real/ad-set/step-5.png",
                 "image_source": "meta_official", "source_url": "https://www.facebook.com/business/help/example",
-                "captured_at": "2026-11-06", "rights_cleared": True, "cropped_to_step": True}]}), encoding="utf-8")
+                "captured_at": "2026-11-06", "rights_cleared": True, "cropped_to_step": True,
+                "annotations": [{"type": "box", "x": 10, "y": 20, "width": 30, "height": 15},
+                                {"type": "arrow", "x": 60, "y": 20, "to_x": 40, "to_y": 35}]}]}), encoding="utf-8")
             with patch("tools.tutorial_screenshots.MANIFEST", manifest), patch("tools.tutorial_screenshots.IMAGE_ROOT", root):
                 result = screenshots_for("meta_ads", "Ad Set", "Ad Set Duplicate")
             self.assertEqual(result[5]["image_type"], "real_screenshot")
             self.assertEqual(result[5]["image_source"], "meta_official")
+            self.assertEqual(len(result[5]["annotations"]), 2)
 
     def test_teaching_request_uses_read_only_steps(self):
         # “怎么创建”表达学习意图，不应被模型误选为真实账户创建操作。

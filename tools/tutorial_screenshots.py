@@ -37,6 +37,27 @@ def _valid_date(value):
         return False
 
 
+def _annotations(value):
+    """百分比坐标只用于真实截图上的红框和箭头。"""
+    if value is None:
+        return []
+    if not isinstance(value, list) or len(value) > 8:
+        return []
+    cleaned = []
+    for item in value:
+        if not isinstance(item, dict) or item.get("type") not in {"box", "arrow"}:
+            continue
+        keys = ("x", "y", "width", "height") if item["type"] == "box" else ("x", "y", "to_x", "to_y")
+        if any(not isinstance(item.get(key), (int, float)) or isinstance(item.get(key), bool)
+               or not 0 <= item[key] <= 100 for key in keys):
+            continue
+        if item["type"] == "box" and (item["width"] <= 0 or item["height"] <= 0
+                                        or item["x"] + item["width"] > 100 or item["y"] + item["height"] > 100):
+            continue
+        cleaned.append({"type": item["type"], **{key: item[key] for key in keys}})
+    return cleaned
+
+
 def _valid_source(source, source_url):
     if source == "user_upload":
         return source_url is None
@@ -93,5 +114,6 @@ def screenshots_for(platform, topic, variant=None):
             "image_source": source,
             "source_url": item.get("source_url"),
             "captured_at": captured,
+            "annotations": _annotations(item.get("annotations")),
         }
     return found

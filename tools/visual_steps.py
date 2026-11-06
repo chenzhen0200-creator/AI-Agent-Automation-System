@@ -8,7 +8,7 @@ def attach_images(steps, platform, topic, variant=None):
     screenshots = screenshots_for(platform, topic, variant)
     for step in steps:
         step.update({"image_url": None, "image_type": None, "image_source": None,
-                     "source_url": None, "captured_at": None, "platform": platform})
+                     "source_url": None, "captured_at": None, "annotations": [], "platform": platform})
         step.update(screenshots.get(step.get("step_number"), {}))
     return steps
 
@@ -30,4 +30,5 @@ def make_step(number, title, location, button, next_page, detail):
         "image_source": None,
         "source_url": None,
         "captured_at": None,
+        "annotations": [],
     }

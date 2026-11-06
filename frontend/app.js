@@ -164,9 +164,49 @@ const screenshotSources = {
   meta_official: "Meta 官方", public_tutorial: "公开教程",
 };
 
-function openLightbox(src, alt) {
+function screenshotOverlay(rawAnnotations) {
+  if (!Array.isArray(rawAnnotations) || !rawAnnotations.length) return null;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "screenshot-annotations");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("aria-hidden", "true");
+  const markerId = `adlearn-arrow-${crypto.randomUUID()}`;
+  const defs = document.createElementNS(svg.namespaceURI, "defs");
+  const marker = document.createElementNS(svg.namespaceURI, "marker");
+  [["id", markerId], ["markerWidth", "5"], ["markerHeight", "5"], ["refX", "4"], ["refY", "2.5"],
+   ["orient", "auto"], ["markerUnits", "strokeWidth"]].forEach(([key, value]) => marker.setAttribute(key, value));
+  const tip = document.createElementNS(svg.namespaceURI, "path");
+  tip.setAttribute("d", "M 0 0 L 5 2.5 L 0 5 z");
+  tip.setAttribute("fill", "#e52e36");
+  marker.append(tip);
+  defs.append(marker);
+  svg.append(defs);
+  let count = 0;
+  rawAnnotations.slice(0, 8).forEach((item) => {
+    if (!item || !["box", "arrow"].includes(item.type)) return;
+    const keys = item.type === "box" ? ["x", "y", "width", "height"] : ["x", "y", "to_x", "to_y"];
+    if (keys.some((key) => typeof item[key] !== "number" || !Number.isFinite(item[key]) || item[key] < 0 || item[key] > 100)) return;
+    if (item.type === "box" && (item.width <= 0 || item.height <= 0 || item.x + item.width > 100 || item.y + item.height > 100)) return;
+    const shape = document.createElementNS(svg.namespaceURI, item.type === "box" ? "rect" : "line");
+    const attributes = item.type === "box"
+      ? { x: item.x, y: item.y, width: item.width, height: item.height, fill: "none", stroke: "#e52e36", "stroke-width": 0.85 }
+      : { x1: item.x, y1: item.y, x2: item.to_x, y2: item.to_y, stroke: "#e52e36", "stroke-width": 0.9,
+          "marker-end": `url(#${markerId})` };
+    Object.entries(attributes).forEach(([key, value]) => shape.setAttribute(key, String(value)));
+    svg.append(shape);
+    count += 1;
+  });
+  return count ? svg : null;
+}
+
+function openLightbox(src, alt, annotations = []) {
   $("lightbox-image").src = src;
   $("lightbox-image").alt = alt;
+  const media = $("lightbox-media");
+  media.querySelector(".screenshot-annotations")?.remove();
+  const overlay = screenshotOverlay(annotations);
+  if (overlay) media.append(overlay);
   $("image-lightbox").hidden = false;
   $("lightbox-close").focus();
 }
@@ -174,6 +214,7 @@ function openLightbox(src, alt) {
 function closeLightbox() {
   $("image-lightbox").hidden = true;
   $("lightbox-image").removeAttribute("src");
+  $("lightbox-media").querySelector(".screenshot-annotations")?.remove();
 }
 $("lightbox-close").addEventListener("click", closeLightbox);
 $("image-lightbox").addEventListener("click", (event) => {
@@ -185,6 +226,7 @@ function renderStepCard(step, platform, topic) {
   card.append(node("h3", "", `第 ${step.step_number} 步：${step.title || "操作"}`));
   const src = tutorialImageUrl(step);
   if (src) {
+    const imageSection = node("div", "step-image-section");
     const button = node("button", "step-image-button");
     button.type = "button";
     const alt = `${platform === "meta_ads" ? "Meta Ads" : "Google Ads"} ${topic} 第 ${step.step_number} 步真实后台截图`;
@@ -192,10 +234,12 @@ function renderStepCard(step, platform, topic) {
     img.src = src;
     img.alt = alt;
     img.loading = "lazy";
-    img.addEventListener("error", () => button.replaceWith(node("div", "image-placeholder", "该步骤暂未提供界面图片")));
+    img.addEventListener("error", () => imageSection.replaceWith(node("p", "image-placeholder", "该步骤暂未收录真实后台截图")));
     button.append(img);
-    button.addEventListener("click", () => openLightbox(src, alt));
-    card.append(button);
+    const overlay = screenshotOverlay(step.annotations);
+    if (overlay) button.append(overlay);
+    button.addEventListener("click", () => openLightbox(src, alt, step.annotations));
+    imageSection.append(button);
     const sourceLine = node("div", "image-source");
     sourceLine.append(node("span", "", `来源：${screenshotSources[step.image_source]}`));
     if (step.captured_at) sourceLine.append(node("span", "", `拍摄日期：${step.captured_at}`));
@@ -210,8 +254,9 @@ function renderStepCard(step, platform, topic) {
       sourceDetails.append(anchor);
       sourceLine.append(sourceDetails);
     }
-    card.append(sourceLine);
-  } else card.append(node("div", "image-placeholder", "该步骤暂未收录真实后台截图"));
+    imageSection.append(sourceLine);
+    card.append(imageSection);
+  } else card.append(node("p", "image-placeholder", "该步骤暂未收录真实后台截图"));
   card.append(node("p", "step-action", `操作：${step.action || "查看当前步骤。"}`));
   const details = node("details", "step-details");
   details.append(node("summary", "", "查看详细说明"));
@@ -233,7 +278,7 @@ function renderTutorial(data) {
   const result = tool.result;
   const section = node("section", "step-tutorial");
   section.append(node("h2", "", `${result.topic || "操作"} · 图文步骤`),
-                 node("p", "tutorial-note", "后台界面可能因账户版本或平台更新略有差异。"));
+                 node("p", "tutorial-note", "AdLearn 操作教程 · 真实后台截图"));
   result.steps.slice(0, 8).forEach((step) => section.append(renderStepCard(step, data.platform, result.topic)));
   if (result.steps.length > 8) {
     const more = node("details", "more-steps");
